@@ -1,0 +1,14 @@
+cement==3.0.2
+pyyaml
+colorlog
+pymongo==3.8.0
+redis==3.2.1
+marshmallow==3.0.0rc6
+ujson==1.35
+
+grpcio==1.20.1
+grpcio-tools==1.20.1
+protobuf==3.7.1
+
+
+-e git+https://oauth2:Q8HLiBk95Rkqzy2Q7Kgh@git.zoodroom.com/basket/olive.git@master#egg=olive

@@ -1,0 +1,11 @@
+-r requirements.txt
+
+pytest
+pytest-cov
+twine>=1.11.0
+setuptools>=38.6.0
+wheel>=0.31.0
+
+
+coverage==4.5.3
+flake8==3.7.7
