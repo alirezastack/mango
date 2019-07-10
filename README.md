@@ -1,4 +1,4 @@
-# Open Authentication 2.0 Service
+# Survey and Question Management Service
 
 ## Installation
 
