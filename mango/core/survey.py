@@ -1,4 +1,5 @@
-from olive.proto.zoodroom_pb2 import AddQuestionRequest, AddQuestionResponse
+from olive.proto.zoodroom_pb2 import AddQuestionRequest, AddQuestionResponse, GetQuestionByIdRequest, \
+    GetQuestionByIdResponse
 from olive.proto import zoodroom_pb2_grpc
 from marshmallow import ValidationError
 from olive.proto.rpc import Response
@@ -12,7 +13,7 @@ class MangoService(zoodroom_pb2_grpc.MangoServiceServicer):
 
     def AddQuestion(self, request: AddQuestionRequest, context) -> AddQuestionResponse:
         try:
-            self.app.log.debug('accepted fields by gRPC proto: {}'.format(request.DESCRIPTOR.fields_by_name.keys()))
+            self.app.log.info('accepted fields by gRPC proto: {}'.format(request.DESCRIPTOR.fields_by_name.keys()))
             ranges = []
             for r in request.ranges:
                 ranges.append({
@@ -40,10 +41,52 @@ class MangoService(zoodroom_pb2_grpc.MangoServiceServicer):
             }
 
             question_id = self.question_store.save(question_payload)
-            self.app.log.debug('question has been saved successfully: {}'.format(question_id))
+            self.app.log.info('question has been saved successfully: {}'.format(question_id))
 
             return Response.message(
                 question_id=question_id
+            )
+        except ValueError as ve:
+            self.app.log.error('Schema value error:\r\n{}'.format(traceback.format_exc()))
+            return Response.message(
+                error={
+                    'code': 'value_error',
+                    'message': str(ve),
+                    'details': []
+                }
+            )
+        except ValidationError as ve:
+            self.app.log.error('Schema validation error:\r\n{}'.format(ve.messages))
+            return Response.message(
+                error={
+                    'code': 'invalid_schema',
+                    'message': 'Given data is not valid!',
+                    'details': []
+                }
+            )
+        except Exception:
+            self.app.log.error('An error occurred: {}'.format(traceback.format_exc()))
+            return Response.message(
+                error={
+                    'code': 'server_error',
+                    'message': 'Server is in maintenance mode',
+                    'details': []
+                }
+            )
+
+    def GetQuestionById(self, request: GetQuestionByIdRequest, context) -> GetQuestionByIdResponse:
+        try:
+            self.app.log.info('accepted fields by gRPC proto: {}'.format(request.DESCRIPTOR.fields_by_name.keys()))
+            question = self.question_store.get_question_by_id(request.question_id)
+            return Response.message(
+                _id=str(question['_id']),
+                ranges=question.get('ranges', []),
+                category=question['category'],
+                title=question['title'],
+                order=question['order'],
+                status=question['status'],
+                include_in=question['include_in'],
+                weight=question['weight']
             )
         except ValueError as ve:
             self.app.log.error('Schema value error:\r\n{}'.format(traceback.format_exc()))
