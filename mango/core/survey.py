@@ -1,3 +1,4 @@
+from olive.exc import InvalidObjectId
 from olive.proto.zoodroom_pb2 import AddQuestionRequest, AddQuestionResponse, GetQuestionByIdRequest, \
     GetQuestionByIdResponse
 from olive.proto import zoodroom_pb2_grpc
@@ -94,6 +95,15 @@ class MangoService(zoodroom_pb2_grpc.MangoServiceServicer):
                 error={
                     'code': 'value_error',
                     'message': str(ve),
+                    'details': []
+                }
+            )
+        except InvalidObjectId as ioi:
+            self.app.log.error('Invalid ObjectId (question_id) given:\r\n{}'.format(traceback.format_exc()))
+            return Response.message(
+                error={
+                    'code': 'invalid_id',
+                    'message': str(ioi),
                     'details': []
                 }
             )

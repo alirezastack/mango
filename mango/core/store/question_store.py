@@ -1,6 +1,8 @@
 from mango.core.models.question import QuestionSchema
-from olive.exc import SaveError
+from olive.exc import SaveError, InvalidObjectId
 from bson import ObjectId
+import traceback
+import bson
 
 
 class QuestionStore:
@@ -22,8 +24,14 @@ class QuestionStore:
         return str(question_id)
 
     def get_question_by_id(self, question_id):
+        try:
+            question_id = ObjectId(question_id)
+        except bson.errors.InvalidId:
+            self.app.log.error(traceback.format_exc())
+            raise InvalidObjectId
+
         self.app.log.debug('getting question by ID: {}'.format(question_id))
-        question_doc = self.db.find_one({'_id': ObjectId(question_id)}, {'created_at': 0})
+        question_doc = self.db.find_one({'_id': question_id}, {'created_at': 0})
         clean_data = self.question_schema.load(question_doc)
         self.app.log.info('fetched question:\r\n{}'.format(clean_data))
         return clean_data
