@@ -54,16 +54,3 @@ $ make dist
 
 $ make dist-upload
 ```
-
-## Deployments
-
-### Docker
-
-Included is a basic `Dockerfile` for building and distributing `CE ZOO`,
-and can be built with the included `make` helper:
-
-```
-$ make docker
-
-$ docker run -it mango --help
-```
