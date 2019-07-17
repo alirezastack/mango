@@ -1,8 +1,9 @@
+from olive.proto import zoodroom_pb2_grpc, health_pb2_grpc
 from mango.core.store.question_store import QuestionStore
 from olive.store.mongo_connection import MongoConnection
+from olive.proto.health import HealthService
 from mango.core.survey import MangoService
 from olive.proto.rpc import GRPCServerBase
-from olive.proto import zoodroom_pb2_grpc
 from cement.core.exc import CaughtSignal
 from mango.controllers.base import Base
 from olive.exc import MangoServiceError
@@ -72,8 +73,11 @@ class MangoServer(GRPCServerBase):
         # add class to gRPC server
         service = MangoService(question_store=question_store,
                                app=app)
+        health_service = HealthService(app=app)
+
         # adds a MangoService to a gRPC.Server
         zoodroom_pb2_grpc.add_MangoServiceServicer_to_server(service, self.server)
+        health_pb2_grpc.add_HealthServicer_to_server(health_service, self.server)
 
 
 class MangoAppTest(TestApp, MangoApp):
