@@ -1,8 +1,8 @@
-from olive.exc import InvalidObjectId
 from olive.proto.zoodroom_pb2 import AddQuestionRequest, AddQuestionResponse, GetQuestionByIdRequest, \
     GetQuestionByIdResponse
 from olive.proto import zoodroom_pb2_grpc
 from marshmallow import ValidationError
+from olive.exc import InvalidObjectId
 from olive.proto.rpc import Response
 import traceback
 

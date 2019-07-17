@@ -9,8 +9,13 @@ mango:
         socketTimeoutMS: 5000
 ### Toggle application level debug (does not toggle framework debugging)
     debug: true
-    oauth:
-        expires_in: 4600
+    survey_setting:
+         - color: "#000"
+           range: "(2,3]"
+           content: "Great"
+         - color: "#001"
+           range: "(1,2]"
+           content: "Poor"
 
 cache.redis:
     expire_time: 60
