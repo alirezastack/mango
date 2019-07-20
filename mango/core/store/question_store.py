@@ -1,5 +1,6 @@
+from olive.exc import SaveError, InvalidObjectId, CacheNotFound
 from mango.core.models.question import QuestionSchema
-from olive.exc import SaveError, InvalidObjectId
+from olive.store.cache_wrapper import CacheWrapper
 from bson import ObjectId
 import traceback
 import bson
@@ -10,6 +11,8 @@ class QuestionStore:
         self.app = app
         self.db = db
         self.question_schema = QuestionSchema()
+        self.cache_key = 'MANGO:QUESTION:{}'
+        self.cache_wrapper = CacheWrapper(self.app, self.cache_key)
 
     def save(self, data):
         # raise validation error on invalid data
@@ -21,6 +24,8 @@ class QuestionStore:
 
         self.app.log.debug('saving clean question:\n{}'.format(clean_data))
         question_id = self.db.save(clean_data)
+        clean_data['_id'] = str(question_id)
+        self.cache_wrapper.write_cache(question_id, clean_data)
         return str(question_id)
 
     def get_question_by_id(self, question_id):
@@ -30,8 +35,13 @@ class QuestionStore:
             self.app.log.error(traceback.format_exc())
             raise InvalidObjectId
 
-        self.app.log.debug('getting question by ID: {}'.format(question_id))
-        question_doc = self.db.find_one({'_id': question_id}, {'created_at': 0})
+        try:
+            question_doc = self.cache_wrapper.get_cache(question_id)
+        except CacheNotFound:
+            self.app.log.debug('reading directly from database')
+            question_doc = self.db.find_one({'_id': question_id}, {'created_at': 0})
+            question_doc['_id'] = str(question_doc['_id'])
+            self.cache_wrapper.write_cache(question_id, question_doc)
+
         clean_data = self.question_schema.load(question_doc)
-        self.app.log.info('fetched question:\r\n{}'.format(clean_data))
         return clean_data
