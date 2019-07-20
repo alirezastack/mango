@@ -5,6 +5,9 @@ mango:
     mongodb:
         host: 192.168.104.117
         port: 27017
+        username: admin
+        password: admin
+        authSource: admin
         appname: mango
         socketTimeoutMS: 5000
 ### Toggle application level debug (does not toggle framework debugging)
