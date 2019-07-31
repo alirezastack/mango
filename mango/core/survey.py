@@ -1,8 +1,8 @@
 from olive.proto.zoodroom_pb2 import AddQuestionRequest, AddQuestionResponse, GetQuestionByIdRequest, \
-    GetQuestionByIdResponse
+    GetQuestionByIdResponse, DeleteQuestionRequest, DeleteQuestionResponse
+from olive.exc import InvalidObjectId, DocumentNotFound
 from olive.proto import zoodroom_pb2_grpc
 from marshmallow import ValidationError
-from olive.exc import InvalidObjectId
 from olive.proto.rpc import Response
 import traceback
 
@@ -76,6 +76,15 @@ class MangoService(zoodroom_pb2_grpc.MangoServiceServicer):
                 include_in=question['include_in'],
                 weight=question['weight']
             )
+        except DocumentNotFound as dnf:
+            self.app.log.error('question not found:\r\n{}'.format(traceback.format_exc()))
+            return Response.message(
+                error={
+                    'code': 'resource_not_found',
+                    'message': str(dnf),
+                    'details': []
+                }
+            )
         except ValueError as ve:
             self.app.log.error('Schema value error:\r\n{}'.format(traceback.format_exc()))
             return Response.message(
@@ -100,6 +109,32 @@ class MangoService(zoodroom_pb2_grpc.MangoServiceServicer):
                 error={
                     'code': 'invalid_schema',
                     'message': 'Given data is not valid!',
+                    'details': []
+                }
+            )
+        except Exception:
+            self.app.log.error('An error occurred: {}'.format(traceback.format_exc()))
+            return Response.message(
+                error={
+                    'code': 'server_error',
+                    'message': 'Server is in maintenance mode',
+                    'details': []
+                }
+            )
+
+    def DeleteQuestion(self, request: DeleteQuestionRequest, context) -> DeleteQuestionResponse:
+        try:
+            self.app.log.info('accepted fields by gRPC proto: {}'.format(request.DESCRIPTOR.fields_by_name.keys()))
+            delete_response = self.question_store.delete(request.question_id)
+            return Response.message(
+                is_deleted=bool(delete_response)
+            )
+        except InvalidObjectId as ioi:
+            self.app.log.error('Invalid ObjectId (question_id) given:\r\n{}'.format(traceback.format_exc()))
+            return Response.message(
+                error={
+                    'code': 'invalid_id',
+                    'message': str(ioi),
                     'details': []
                 }
             )

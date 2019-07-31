@@ -1,11 +1,9 @@
-from concurrent import futures
-
-import grpc
-from decorator import contextmanager
 from olive.proto import zoodroom_pb2_grpc, zoodroom_pb2
-
+from decorator import contextmanager
 from mango.main import MangoAppTest
+from concurrent import futures
 import unittest
+import grpc
 
 
 def test_mango():
@@ -42,7 +40,7 @@ def test_command1():
 
 
 @contextmanager
-def add_question(cls):
+def grpc_server(cls):
     """Instantiate a Mango server and return a stub for use in tests"""
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     zoodroom_pb2_grpc.add_MangoServiceServicer_to_server(cls(), server)
@@ -57,14 +55,17 @@ def add_question(cls):
 
 
 # may do something extra for this mock if it's stateful
-class FakeAddQuestion(zoodroom_pb2_grpc.MangoServiceServicer):
+class FakeMangoService(zoodroom_pb2_grpc.MangoServiceServicer):
     def AddQuestion(self, request, context):
         return zoodroom_pb2.AddQuestionResponse()
+
+    def DeleteQuestion(self, request, context):
+        return zoodroom_pb2.DeleteQuestionResponse()
 
 
 class SurveyTest(unittest.TestCase):
     def test_successful_add_question(self):
-        with add_question(FakeAddQuestion) as stub:
+        with grpc_server(FakeMangoService) as stub:
             response = stub.AddQuestion(zoodroom_pb2.AddQuestionRequest(
                 title=zoodroom_pb2.QuestionTitle(on_rate='on rate',
                                                  on_display='on-display'),
@@ -78,7 +79,7 @@ class SurveyTest(unittest.TestCase):
 
     def test_invalid_grpc_field_in_add_question(self):
         try:
-            with add_question(FakeAddQuestion) as stub:
+            with grpc_server(FakeMangoService) as stub:
                 self.assertRaises(ValueError, stub.AddQuestion(zoodroom_pb2.AddQuestionRequest(
                     invalid_field=12
                 )))
@@ -86,3 +87,11 @@ class SurveyTest(unittest.TestCase):
             pass
         except Exception:
             self.fail('Expected exception not raised!')
+
+    def test_delete_question(self):
+        with grpc_server(FakeMangoService) as stub:
+            response = stub.DeleteQuestion(zoodroom_pb2.DeleteQuestionRequest(
+                question_id='12222222'
+            ))
+        self.assertEqual(type(response.is_deleted), bool)
+        self.assertFalse(response.is_deleted)
