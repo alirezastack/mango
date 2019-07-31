@@ -1,4 +1,3 @@
-from marshmallow.validate import OneOf
 from olive.toolbox import MarshmallowDateTimeField
 from marshmallow import Schema, fields, EXCLUDE
 from olive.consts import UTC_DATE_FORMAT
@@ -10,17 +9,6 @@ class TitleNestedSchema(Schema):
                          error_messages={'required': {'message': 'question on_rate title required', 'code': 400}})
     on_display = fields.Str(required=True,
                             error_messages={'required': {'message': 'question on_display title required', 'code': 400}})
-
-
-class CategoryNestedSchema(Schema):
-    title = fields.Str(required=True,
-                       error_messages={'required': {'message': 'question category title required', 'code': 400}})
-    icon = fields.Str(required=True,
-                      error_messages={'required': {'message': 'question category icon required', 'code': 400}})
-    slug = fields.Str(required=True,
-                      error_messages={'required': {'message': 'question category slug required', 'code': 400}})
-    order = fields.Integer(required=True,
-                           error_messages={'required': {'message': 'question category order required', 'code': 400}})
 
 
 class QuestionSchema(Schema):
@@ -41,12 +29,8 @@ class QuestionSchema(Schema):
     status = fields.Str(required=True,
                         default='inactive',
                         error_messages={'required': {'message': 'status required', 'code': 400}})
-    category = fields.Nested(CategoryNestedSchema)
-    ranges = fields.List(fields.Dict(
-        keys=fields.String(validate=OneOf(('color', 'range', 'content'))),
-        values=fields.String(required=True)
-    ))
-
+    category = fields.Str(required=True,
+                          error_messages={'required': {'message': 'category required', 'code': 400}})
     # dump_only: Fields to skip during deserialization(i.e.: .load())
     created_at = MarshmallowDateTimeField(dump_only=True,
                                           default=lambda: datetime.datetime.utcnow(),
