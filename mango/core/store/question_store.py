@@ -1,9 +1,7 @@
-from olive.exc import SaveError, InvalidObjectId, CacheNotFound
 from mango.core.models.question import QuestionSchema
 from olive.store.cache_wrapper import CacheWrapper
-from bson import ObjectId
-import traceback
-import bson
+from olive.exc import SaveError, CacheNotFound
+from olive.store.toolbox import to_object_id
 
 
 class QuestionStore:
@@ -29,11 +27,7 @@ class QuestionStore:
         return str(question_id)
 
     def get_question_by_id(self, question_id):
-        try:
-            question_id = ObjectId(question_id)
-        except bson.errors.InvalidId:
-            self.app.log.error(traceback.format_exc())
-            raise InvalidObjectId
+        question_id = to_object_id(question_id)
 
         try:
             question_doc = self.cache_wrapper.get_cache(question_id)

@@ -54,10 +54,6 @@ class MangoApp(App):
         question_store = QuestionStore(target_database.question, self)
         self.log.info('current service name: ' + self._meta.label)
 
-        # Set a cached value
-        # TODO use cache where its needed
-        # self.cache.set(key='my_key', value='my value', time=20)
-
         # Passing self for app is suggested by Cement Core Developer:
         #   - https://github.com/datafolklabs/cement/issues/566
         cs = MangoServer(service_name=self._meta.label,
@@ -72,7 +68,8 @@ class MangoServer(GRPCServerBase):
 
         # add class to gRPC server
         service = MangoService(question_store=question_store,
-                               app=app)
+                               app=app,
+                               ranges=app.config['mango']['survey_setting']['ranges'])
         health_service = HealthService(app=app)
 
         # adds a MangoService to a gRPC.Server

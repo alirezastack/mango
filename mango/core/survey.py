@@ -8,21 +8,14 @@ import traceback
 
 
 class MangoService(zoodroom_pb2_grpc.MangoServiceServicer):
-    def __init__(self, question_store, app):
+    def __init__(self, question_store, app, ranges):
         self.question_store = question_store
         self.app = app
+        self.ranges = ranges
 
     def AddQuestion(self, request: AddQuestionRequest, context) -> AddQuestionResponse:
         try:
             self.app.log.info('accepted fields by gRPC proto: {}'.format(request.DESCRIPTOR.fields_by_name.keys()))
-            ranges = []
-            for r in request.ranges:
-                ranges.append({
-                    "color": r.color,
-                    "range": r.range,
-                    "content": r.content
-                })
-
             question_payload = {
                 'title': {
                     'on_rate': request.title.on_rate,
@@ -32,13 +25,7 @@ class MangoService(zoodroom_pb2_grpc.MangoServiceServicer):
                 'weight': request.weight,
                 'order': request.order,
                 'status': request.status,
-                'category': {
-                    'title': request.category.title,
-                    'icon': request.category.icon,
-                    'slug': request.category.slug,
-                    'order': request.category.order
-                },
-                "ranges": ranges
+                'category': request.category
             }
 
             question_id = self.question_store.save(question_payload)
@@ -81,7 +68,7 @@ class MangoService(zoodroom_pb2_grpc.MangoServiceServicer):
             question = self.question_store.get_question_by_id(request.question_id)
             return Response.message(
                 _id=str(question['_id']),
-                ranges=question.get('ranges', []),
+                ranges=self.ranges,
                 category=question['category'],
                 title=question['title'],
                 order=question['order'],

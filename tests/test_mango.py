@@ -56,15 +56,33 @@ def add_question(cls):
         server.stop(None)
 
 
-class SurveyTest(unittest.TestCase):
-    def test_add_question(self):
-        # may do something extra for this mock if it's stateful
-        class FakeAddQuestion(zoodroom_pb2_grpc.MangoServiceServicer):
-            def AddQuestion(self, request, context):
-                return zoodroom_pb2.AddQuestionResponse()
+# may do something extra for this mock if it's stateful
+class FakeAddQuestion(zoodroom_pb2_grpc.MangoServiceServicer):
+    def AddQuestion(self, request, context):
+        return zoodroom_pb2.AddQuestionResponse()
 
+
+class SurveyTest(unittest.TestCase):
+    def test_successful_add_question(self):
         with add_question(FakeAddQuestion) as stub:
             response = stub.AddQuestion(zoodroom_pb2.AddQuestionRequest(
                 title=zoodroom_pb2.QuestionTitle(on_rate='on rate',
-                                                 on_display='on-display')))
+                                                 on_display='on-display'),
+                include_in=['rate_display'],
+                weight=2,
+                order=1,
+                status='active',
+                category='customer_survey'
+            ))
             self.assertEqual(response.question_id, '')
+
+    def test_invalid_grpc_field_in_add_question(self):
+        try:
+            with add_question(FakeAddQuestion) as stub:
+                self.assertRaises(ValueError, stub.AddQuestion(zoodroom_pb2.AddQuestionRequest(
+                    invalid_field=12
+                )))
+        except ValueError:
+            pass
+        except Exception:
+            self.fail('Expected exception not raised!')
