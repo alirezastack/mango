@@ -62,6 +62,9 @@ class FakeMangoService(zoodroom_pb2_grpc.MangoServiceServicer):
     def DeleteQuestion(self, request, context):
         return zoodroom_pb2.DeleteQuestionResponse()
 
+    def UpdateQuestion(self, request, context):
+        return zoodroom_pb2.UpdateQuestionResponse()
+
 
 class SurveyTest(unittest.TestCase):
     def test_successful_add_question(self):
@@ -95,3 +98,18 @@ class SurveyTest(unittest.TestCase):
             ))
         self.assertEqual(type(response.is_deleted), bool)
         self.assertFalse(response.is_deleted)
+
+    def test_update_question(self):
+        with grpc_server(FakeMangoService) as stub:
+            response = stub.UpdateQuestion(zoodroom_pb2.UpdateQuestionRequest(
+                question_id='12222222',
+                title=zoodroom_pb2.QuestionTitle(on_rate='blah rate',
+                                                 on_display='blah display'),
+                include_in=['something'],
+                category='cat',
+                status='active',
+                order=20,
+                weight=12
+            ))
+        self.assertEqual(type(response.is_updated), bool)
+        self.assertFalse(response.is_updated)

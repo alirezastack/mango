@@ -3,7 +3,7 @@ pyyaml
 colorlog
 pymongo==3.8.0
 redis==3.2.1
-marshmallow==3.0.0rc6
+marshmallow==3.0.0rc9
 ujson==1.35
 
 grpcio==1.22.0
