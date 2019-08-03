@@ -1,6 +1,7 @@
 from olive.proto.zoodroom_pb2 import AddQuestionRequest, AddQuestionResponse, GetQuestionByIdRequest, \
-    GetQuestionByIdResponse, DeleteQuestionRequest, DeleteQuestionResponse
-from olive.exc import InvalidObjectId, DocumentNotFound
+    GetQuestionByIdResponse, DeleteQuestionRequest, DeleteQuestionResponse, UpdateQuestionRequest, \
+    UpdateQuestionResponse
+from olive.exc import InvalidObjectId, DocumentNotFound, SaveError
 from olive.proto import zoodroom_pb2_grpc
 from marshmallow import ValidationError
 from olive.proto.rpc import Response
@@ -75,6 +76,83 @@ class MangoService(zoodroom_pb2_grpc.MangoServiceServicer):
                 status=question['status'],
                 include_in=question['include_in'],
                 weight=question['weight']
+            )
+        except DocumentNotFound as dnf:
+            self.app.log.error('question not found:\r\n{}'.format(traceback.format_exc()))
+            return Response.message(
+                error={
+                    'code': 'resource_not_found',
+                    'message': str(dnf),
+                    'details': []
+                }
+            )
+        except ValueError as ve:
+            self.app.log.error('Schema value error:\r\n{}'.format(traceback.format_exc()))
+            return Response.message(
+                error={
+                    'code': 'value_error',
+                    'message': str(ve),
+                    'details': []
+                }
+            )
+        except InvalidObjectId as ioi:
+            self.app.log.error('Invalid ObjectId (question_id) given:\r\n{}'.format(traceback.format_exc()))
+            return Response.message(
+                error={
+                    'code': 'invalid_id',
+                    'message': str(ioi),
+                    'details': []
+                }
+            )
+        except ValidationError as ve:
+            self.app.log.error('Schema validation error:\r\n{}'.format(ve.messages))
+            return Response.message(
+                error={
+                    'code': 'invalid_schema',
+                    'message': 'Given data is not valid!',
+                    'details': []
+                }
+            )
+        except Exception:
+            self.app.log.error('An error occurred: {}'.format(traceback.format_exc()))
+            return Response.message(
+                error={
+                    'code': 'server_error',
+                    'message': 'Server is in maintenance mode',
+                    'details': []
+                }
+            )
+
+    def UpdateQuestion(self, request: UpdateQuestionRequest, context) -> UpdateQuestionResponse:
+        try:
+            self.app.log.info('accepted fields by gRPC proto: {}'.format(request.DESCRIPTOR.fields_by_name.keys()))
+
+            question = self.question_store.get_question_by_id(request.question_id)
+            new_question = {
+                'title': {
+                    'on_rate': request.title.on_rate or question['title']['on_rate'],
+                    'on_display': request.title.on_display or question['title']['on_display'],
+                },
+                'include_in': list(request.include_in) or question['include_in'],
+                'category': request.category or question['category'],
+                'status': request.status or question['status'],
+                'order': request.order or question['order'],
+                'weight': request.weight or question['weight'],
+            }
+
+            question = self.question_store.update(request.question_id, new_question)
+
+            return Response.message(
+                is_updated=bool(question)
+            )
+        except SaveError as se:
+            self.app.log.error('question cannot be updated:\r\n{}'.format(traceback.format_exc()))
+            return Response.message(
+                error={
+                    'code': 'save_error',
+                    'message': str(se),
+                    'details': []
+                }
             )
         except DocumentNotFound as dnf:
             self.app.log.error('question not found:\r\n{}'.format(traceback.format_exc()))
