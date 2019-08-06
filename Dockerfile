@@ -13,9 +13,8 @@ RUN set -ex \
         git \
     && pip install --upgrade pip \
     && pip install --no-cache-dir -r /src/requirements.txt \
-    && apk del .build-deps
-
-RUN apk add libstdc++
+    && apk del .build-deps \
+    && apk add --no-cache libstdc++
 
 COPY . /src
 WORKDIR /src
