@@ -3,7 +3,7 @@
 
 mango:
     mongodb:
-        host: 192.168.104.117
+        host: 127.0.0.1
         port: 27017
         username: admin
         password: admin
@@ -13,16 +13,17 @@ mango:
 ### Toggle application level debug (does not toggle framework debugging)
     debug: true
     survey_setting:
-         - color: "#000"
-           range: "(2,3]"
-           content: "Great"
-         - color: "#001"
-           range: "(1,2]"
-           content: "Poor"
+        ranges:
+          - color: "#000"
+            range: "(2,3]"
+            content: "Great"  
+          - color: "#001"
+            range: "(1,2]"
+            content: "Poor"
 
 cache.redis:
-    expire_time: 60
-    host: 192.168.104.117
+    expire_time: 3600
+    host: 127.0.0.1
     port: 6379
     db: 1
 
@@ -36,7 +37,7 @@ cache.redis:
 # template_dir: /var/lib/mango/templates/
 
 ### The log handler label
-# log_handler: colorlog
+log_handler: colorlog
 
 ### The output handler label
 # output_handler: jinja2
@@ -56,7 +57,7 @@ log.colorlog:
 # level: info
 
 ### Whether or not to log to console
-# to_console: true
+to_console: true
 
 ### Whether or not to rotate the log file when it reaches `max_bytes`
 # rotate: false
