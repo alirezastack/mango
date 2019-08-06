@@ -54,3 +54,8 @@ $ make dist
 
 $ make dist-upload
 ```
+
+### Run Docker service
+```
+sudo docker run -it -v /etc/mango/mango.yml:/etc/mango/mango.yml -p 9000:9000 mango:0.0.1
+```

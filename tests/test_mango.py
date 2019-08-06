@@ -1,4 +1,7 @@
+from mango.core.store.question_store import QuestionStore
+from olive.store.mongo_connection import MongoConnection
 from olive.proto import zoodroom_pb2_grpc, zoodroom_pb2
+from mango.core.survey import MangoService
 from decorator import contextmanager
 from mango.main import MangoAppTest
 from concurrent import futures
@@ -40,10 +43,10 @@ def test_command1():
 
 
 @contextmanager
-def grpc_server(cls):
+def grpc_server(cls, question_store, app, ranges):
     """Instantiate a Mango server and return a stub for use in tests"""
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    zoodroom_pb2_grpc.add_MangoServiceServicer_to_server(cls(), server)
+    zoodroom_pb2_grpc.add_MangoServiceServicer_to_server(cls(question_store, app, ranges), server)
     port = server.add_insecure_port('[::]:0')
     server.start()
 
@@ -62,11 +65,19 @@ class FakeMangoService(zoodroom_pb2_grpc.MangoServiceServicer):
     def DeleteQuestion(self, request, context):
         return zoodroom_pb2.DeleteQuestionResponse()
 
-    def UpdateQuestion(self, request, context):
-        return zoodroom_pb2.UpdateQuestionResponse()
-
 
 class SurveyTest(unittest.TestCase):
+    def setUp(self):
+        # with MangoAppTest(config_files=['/etc/mango/mango.yml']) as app:
+        self.app = MangoAppTest(config_files=['/etc/mango/mango.yml'])
+        self.app.__enter__()
+        mongodb_cfg = self.app.config['mango']['mongodb']
+        mongo = MongoConnection(mongodb_cfg, self.app)
+        target_database = mongo.service_db
+        self.ranges = self.app.config['mango']['survey_setting']['ranges']
+        self.question_store = QuestionStore(target_database.question, self.app)
+        self.grpc_server = grpc_server(MangoService, self.question_store, self.app, self.ranges)
+
     def test_successful_add_question(self):
         with grpc_server(FakeMangoService) as stub:
             response = stub.AddQuestion(zoodroom_pb2.AddQuestionRequest(
@@ -92,12 +103,11 @@ class SurveyTest(unittest.TestCase):
             self.fail('Expected exception not raised!')
 
     def test_delete_question(self):
-        with grpc_server(FakeMangoService) as stub:
+        with grpc_server(MangoService, self.question_store, self.app, self.ranges) as stub:
             response = stub.DeleteQuestion(zoodroom_pb2.DeleteQuestionRequest(
                 question_id='12222222'
             ))
-        self.assertEqual(type(response.is_deleted), bool)
-        self.assertFalse(response.is_deleted)
+            self.assertEqual(response.error.code, 'invalid_id')
 
     def test_update_question(self):
         with grpc_server(FakeMangoService) as stub:
