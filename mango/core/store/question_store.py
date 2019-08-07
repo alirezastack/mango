@@ -69,6 +69,20 @@ class QuestionStore:
         clean_data = self.question_schema.load(question_doc)
         return clean_data
 
+    def get_questions_by_filters(self, question_ids, include_in=None, status=None):
+        question_ids = [to_object_id(i) for i in question_ids]
+        filter_args = {
+            "_id": {
+                "$in": question_ids
+            }
+        }
+        if include_in:
+            filter_args["include_in"] = include_in
+        if status:
+            filter_args['status'] = status
+        cur = self.db.find(filter_args)
+        return [self.question_schema.load(question) for question in cur]
+
     def delete(self, question_id):
         question_id = to_object_id(question_id)
         self.cache_wrapper.delete(question_id)

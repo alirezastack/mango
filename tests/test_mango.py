@@ -1,6 +1,8 @@
 from mango.core.store.question_store import QuestionStore
 from olive.store.mongo_connection import MongoConnection
 from olive.proto import zoodroom_pb2_grpc, zoodroom_pb2
+
+from mango.core.store.survey import SurveyStore
 from mango.core.survey import MangoService
 from decorator import contextmanager
 from mango.main import MangoAppTest
@@ -62,6 +64,9 @@ class FakeMangoService(zoodroom_pb2_grpc.MangoServiceServicer):
     def AddQuestion(self, request, context):
         return zoodroom_pb2.AddQuestionResponse()
 
+    def AddSurvey(self, request, context):
+        return zoodroom_pb2.AddSurveyResponse()
+
     def DeleteQuestion(self, request, context):
         return zoodroom_pb2.DeleteQuestionResponse()
 
@@ -76,6 +81,7 @@ class SurveyTest(unittest.TestCase):
         target_database = mongo.service_db
         self.ranges = self.app.config['mango']['survey_setting']['ranges']
         self.question_store = QuestionStore(target_database.question, self.app)
+        self.survey_store = SurveyStore(target_database.survey, self.app)
         self.grpc_server = grpc_server(MangoService, self.question_store, self.app, self.ranges)
 
     def test_successful_add_question(self):

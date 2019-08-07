@@ -2,6 +2,8 @@ from olive.proto import zoodroom_pb2_grpc, health_pb2_grpc
 from mango.core.store.question_store import QuestionStore
 from olive.store.mongo_connection import MongoConnection
 from olive.proto.health import HealthService
+
+from mango.core.store.survey import SurveyStore
 from mango.core.survey import MangoService
 from olive.proto.rpc import GRPCServerBase
 from cement.core.exc import CaughtSignal
@@ -52,22 +54,25 @@ class MangoApp(App):
         self.log.info('current database: {}'.format(mongo))
         target_database = mongo.service_db
         question_store = QuestionStore(target_database.question, self)
+        survey_store = SurveyStore(target_database.survey, self)
         self.log.info('current service name: ' + self._meta.label)
 
         # Passing self for app is suggested by Cement Core Developer:
         #   - https://github.com/datafolklabs/cement/issues/566
         cs = MangoServer(service_name=self._meta.label,
                          question_store=question_store,
+                         survey_store=survey_store,
                          app=self)
         cs.start()
 
 
 class MangoServer(GRPCServerBase):
-    def __init__(self, service_name, question_store, app):
+    def __init__(self, service_name, question_store, survey_store, app, ):
         super(MangoServer, self).__init__(service=service_name, app=app)
 
         # add class to gRPC server
         service = MangoService(question_store=question_store,
+                               survey_store=survey_store,
                                app=app,
                                ranges=app.config['mango']['survey_setting']['ranges'])
         health_service = HealthService(app=app)
