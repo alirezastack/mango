@@ -1,6 +1,6 @@
 from olive.proto.zoodroom_pb2 import AddQuestionRequest, AddQuestionResponse, GetQuestionByIdRequest, \
     GetQuestionByIdResponse, DeleteQuestionRequest, DeleteQuestionResponse, UpdateQuestionRequest, \
-    UpdateQuestionResponse
+    UpdateQuestionResponse, AddSurveyResponse, AddSurveyRequest
 from olive.exc import InvalidObjectId, DocumentNotFound, SaveError
 from olive.proto import zoodroom_pb2_grpc
 from marshmallow import ValidationError
@@ -9,10 +9,106 @@ import traceback
 
 
 class MangoService(zoodroom_pb2_grpc.MangoServiceServicer):
-    def __init__(self, question_store, app, ranges):
+    def __init__(self, question_store, survey_store, app, ranges):
         self.question_store = question_store
+        self.survey_store = survey_store
         self.app = app
         self.ranges = ranges
+
+    def AddSurvey(self, request: AddSurveyRequest, context) -> AddSurveyResponse:
+        try:
+            self.app.log.info('accepted fields by gRPC proto: {}'.format(request.DESCRIPTOR.fields_by_name.keys()))
+            given_questions = {question.question_id: question.rating for question in request.questions}
+            self.app.log.debug('Validating and retrieving below questions from database: \n{}'.format(given_questions))
+            questions = self.question_store.get_questions_by_filters(question_ids=given_questions.keys(),
+                                                                     include_in="user_rate",
+                                                                     status="active",
+                                                                     project=['weight'])
+            db_question_ids = [str(q['_id']) for q in questions]
+            self.app.log.info('Validation completed, validated questions: {}'.format(','.join(db_question_ids)))
+
+            self.app.log.debug('Validating if all the sent questions exists')
+            for k in given_questions.keys():
+                if k not in db_question_ids:
+                    raise DocumentNotFound("question {} not found with status=`active` and include_in=`user_rate`".format(k))
+
+            self.app.log.info('all questions are valid')
+
+            self.app.log.debug('calculating total rating...')
+            sum_of_survey = 0.0
+            counter = 0.0
+            for question in questions:
+                sum_of_survey += question['weight'] * given_questions[str(question['_id'])]
+                counter += question['weight']
+
+            overall_rate = int(round(sum_of_survey / counter, 1)) if counter else None
+            self.app.log.info('survey total_rating: {}/{} => {}'.format(sum_of_survey, counter, overall_rate))
+
+            survey_payload = {
+                'user_id': request.user_id,
+                'staff_id': request.staff_id,
+                'reservation_id': request.reservation_id,
+                'status': request.status,
+                'content': request.content,
+                'questions': [{"question_id": q, "rating": r or 0} for q, r in given_questions.items()],
+                'total_rating': overall_rate,
+                'platform': request.platform,
+            }
+
+            survey_id = self.survey_store.save(survey_payload)
+            self.app.log.info('survey has been saved successfully: {}'.format(survey_id))
+
+            return Response.message(
+                survey_id=survey_id
+            )
+
+        except InvalidObjectId as ioi:
+            self.app.log.error('Invalid ObjectId (question_id) given:\r\n{}'.format(traceback.format_exc()))
+            return Response.message(
+                error={
+                    'code': 'invalid_id',
+                    'message': str(ioi),
+                    'details': []
+                }
+            )
+
+        except DocumentNotFound as dnf:
+            self.app.log.error('question not found:\r\n{}'.format(traceback.format_exc()))
+            return Response.message(
+                error={
+                    'code': 'resource_not_found',
+                    'message': str(dnf),
+                    'details': []
+                }
+            )
+
+        except ValueError as ve:
+            self.app.log.error('Schema value error:\r\n{}'.format(traceback.format_exc()))
+            return Response.message(
+                error={
+                    'code': 'value_error',
+                    'message': str(ve),
+                    'details': []
+                }
+            )
+        except ValidationError as ve:
+            self.app.log.error('Schema validation error:\r\n{}'.format(ve.messages))
+            return Response.message(
+                error={
+                    'code': 'invalid_schema',
+                    'message': 'Given data is not valid!',
+                    'details': []
+                }
+            )
+        except Exception:
+            self.app.log.error('An error occurred: {}'.format(traceback.format_exc()))
+            return Response.message(
+                error={
+                    'code': 'server_error',
+                    'message': 'Server is in maintenance mode',
+                    'details': []
+                }
+            )
 
     def AddQuestion(self, request: AddQuestionRequest, context) -> AddQuestionResponse:
         try:
