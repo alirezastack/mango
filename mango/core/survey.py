@@ -30,7 +30,7 @@ class MangoService(zoodroom_pb2_grpc.MangoServiceServicer):
             self.app.log.debug('Validating if all the sent questions exists')
             for k in given_questions.keys():
                 if k not in db_question_ids:
-                    raise DocumentNotFound("question {} not found".format(k))
+                    raise DocumentNotFound("question {} not found with status=`active` and include_in=`user_rate`".format(k))
 
             self.app.log.info('all questions are valid')
 
