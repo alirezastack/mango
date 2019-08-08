@@ -69,19 +69,33 @@ class QuestionStore:
         clean_data = self.question_schema.load(question_doc)
         return clean_data
 
-    def get_questions_by_filters(self, question_ids, include_in=None, status=None):
+    # TODO: zoodroom-backend compatibility
+    def get_questions_by_filters(self, question_ids, include_in=None, status=None, project=None):
+        all_fields = {'weight', 'status', 'order', 'include_in', 'title', 'category'}
+        partial = None
+        project = project if type(project) in [list, dict] else None
+        if project:
+            if type(project) == dict:
+                partial = tuple(all_fields - set(project.keys()))
+            elif type(project) == list:
+                partial = tuple(all_fields - set(project))
+
         question_ids = [to_object_id(i) for i in question_ids]
         filter_args = {
             "_id": {
                 "$in": question_ids
             }
         }
+
         if include_in:
             filter_args["include_in"] = include_in
+
         if status:
             filter_args['status'] = status
-        cur = self.db.find(filter_args)
-        return [self.question_schema.load(question) for question in cur]
+
+        cur = self.db.find(filter=filter_args,
+                           projection=project)
+        return [self.question_schema.load(question, partial=partial) for question in cur]
 
     def delete(self, question_id):
         question_id = to_object_id(question_id)

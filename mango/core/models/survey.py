@@ -8,7 +8,7 @@ class SurveyQuestion(Schema):
     question_id = fields.Str(required=True,
                              error_messages={'required': {'message': 'question_id is required', 'code': 400}})
     rating = fields.Int(required=True,
-                        error_messages={'required': {'message': 'question_id is required', 'code': 400}})
+                        error_messages={'required': {'message': 'rating is required', 'code': 400}})
 
 
 class SurveySchema(Schema):

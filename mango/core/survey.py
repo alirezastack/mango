@@ -1,4 +1,3 @@
-from bson.errors import InvalidId
 from olive.proto.zoodroom_pb2 import AddQuestionRequest, AddQuestionResponse, GetQuestionByIdRequest, \
     GetQuestionByIdResponse, DeleteQuestionRequest, DeleteQuestionResponse, UpdateQuestionRequest, \
     UpdateQuestionResponse, AddSurveyResponse, AddSurveyRequest
@@ -19,32 +18,31 @@ class MangoService(zoodroom_pb2_grpc.MangoServiceServicer):
     def AddSurvey(self, request: AddSurveyRequest, context) -> AddSurveyResponse:
         try:
             self.app.log.info('accepted fields by gRPC proto: {}'.format(request.DESCRIPTOR.fields_by_name.keys()))
-            # TODO: Zoodroom-backend Compatibility
-            questions_dict = {question.question_id: question.rating for question in request.questions}
-            self.app.log.debug('Validating and retrieving questions from database')
-            questions = self.question_store.get_questions_by_filters(questions_dict.keys(),
-                                                                     include_in="user_rate", status="active")
-
-            validated_question_ids = [str(q['_id']) for q in questions]
-            self.app.log.info('Validation completed, validated questions: {}'.format(','.join(validated_question_ids)))
+            given_questions = {question.question_id: question.rating for question in request.questions}
+            self.app.log.debug('Validating and retrieving below questions from database: \n{}'.format(given_questions))
+            questions = self.question_store.get_questions_by_filters(question_ids=given_questions.keys(),
+                                                                     include_in="user_rate",
+                                                                     status="active",
+                                                                     project=['weight'])
+            db_question_ids = [str(q['_id']) for q in questions]
+            self.app.log.info('Validation completed, validated questions: {}'.format(','.join(db_question_ids)))
 
             self.app.log.debug('Validating if all the sent questions exists')
-            for k in questions_dict.keys():
-                if k not in validated_question_ids:
-                    raise DocumentNotFound("Question {} not found".format(k))
-            self.app.log.info('All the sent questions are valid')
+            for k in given_questions.keys():
+                if k not in db_question_ids:
+                    raise DocumentNotFound("question {} not found".format(k))
 
-            self.app.log.debug('Calculating total rating')
-            sum = 0.0
+            self.app.log.info('all questions are valid')
+
+            self.app.log.debug('calculating total rating...')
+            sum_of_survey = 0.0
             counter = 0.0
-            overall_rate = None
-            for survey_question in questions:
-                sum += survey_question['weight'] * questions_dict[str(survey_question['_id'])]
-                counter += survey_question['weight']
-            if counter != 0:
-                overall_rate = round(sum / counter, 1)
+            for question in questions:
+                sum_of_survey += question['weight'] * given_questions[str(question['_id'])]
+                counter += question['weight']
 
-            self.app.log.info('Calculation was successful, Calculated rate: {}'.format(str(int(overall_rate))))
+            overall_rate = int(round(sum_of_survey / counter, 1)) if counter else None
+            self.app.log.info('survey total_rating: {}/{} => {}'.format(sum_of_survey, counter, overall_rate))
 
             survey_payload = {
                 'user_id': request.user_id,
@@ -52,17 +50,10 @@ class MangoService(zoodroom_pb2_grpc.MangoServiceServicer):
                 'reservation_id': request.reservation_id,
                 'status': request.status,
                 'content': request.content,
-                'questions': [],
+                'questions': [{"question_id": q, "rating": r or 0} for q, r in given_questions.items()],
                 'total_rating': overall_rate,
                 'platform': request.platform,
             }
-
-            for question in questions:
-                if str(question['_id']) in questions_dict.keys():
-                    survey_payload['questions'].append({
-                        'question_id': str(question['_id']),
-                        'rating': questions_dict.get(str(question['_id']), 0)
-                    })
 
             survey_id = self.survey_store.save(survey_payload)
             self.app.log.info('survey has been saved successfully: {}'.format(survey_id))

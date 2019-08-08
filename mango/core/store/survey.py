@@ -1,7 +1,6 @@
-from olive.exc import SaveError
 from olive.store.cache_wrapper import CacheWrapper
-
 from mango.core.models.survey import SurveySchema
+from olive.exc import SaveError
 
 
 class SurveyStore:
