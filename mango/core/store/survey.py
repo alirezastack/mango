@@ -1,6 +1,6 @@
+from olive.exc import SaveError, CacheNotFound, DocumentNotFound
 from olive.store.cache_wrapper import CacheWrapper
 from mango.core.models.survey import SurveySchema
-from olive.exc import SaveError
 
 
 class SurveyStore:
@@ -23,3 +23,18 @@ class SurveyStore:
         survey_id = self.db.save(clean_data)
         clean_data['_id'] = str(survey_id)
         return str(survey_id)
+
+    def get_by_reservation_id(self, reservation_id):
+        try:
+            survey_doc = self.cache_wrapper.get_cache('BY_RESERVATION:{}'.format(reservation_id))
+        except CacheNotFound:
+            self.app.log.debug('reading directly from database')
+            survey_doc = self.db.find_one({'reservation_id': reservation_id}, {'created_at': 0, 'updated_at': 0})
+            if not survey_doc:
+                raise DocumentNotFound("Document with reservation_id {} not found!".format(reservation_id))
+
+            survey_doc['_id'] = str(survey_doc['_id'])
+            self.cache_wrapper.write_cache('BY_RESERVATION:{}'.format(reservation_id), survey_doc)
+
+        clean_data = self.survey_schema.load(survey_doc)
+        return clean_data

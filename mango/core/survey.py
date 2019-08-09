@@ -1,6 +1,7 @@
 from olive.proto.zoodroom_pb2 import AddQuestionRequest, AddQuestionResponse, GetQuestionByIdRequest, \
     GetQuestionByIdResponse, DeleteQuestionRequest, DeleteQuestionResponse, UpdateQuestionRequest, \
-    UpdateQuestionResponse, AddSurveyResponse, AddSurveyRequest
+    AddSurveyResponse, AddSurveyRequest, UpdateQuestionResponse, GetQuestionsRequest, GetQuestionsResponse, \
+    GetSurveyByReservationIdRequest, GetSurveyByReservationIdResponse
 from olive.exc import InvalidObjectId, DocumentNotFound, SaveError
 from olive.proto import zoodroom_pb2_grpc
 from marshmallow import ValidationError
@@ -309,6 +310,89 @@ class MangoService(zoodroom_pb2_grpc.MangoServiceServicer):
                 error={
                     'code': 'invalid_id',
                     'message': str(ioi),
+                    'details': []
+                }
+            )
+        except Exception:
+            self.app.log.error('An error occurred: {}'.format(traceback.format_exc()))
+            return Response.message(
+                error={
+                    'code': 'server_error',
+                    'message': 'Server is in maintenance mode',
+                    'details': []
+                }
+            )
+
+    def GetQuestions(self, request: GetQuestionsRequest, context) -> GetQuestionsResponse:
+        try:
+            self.app.log.info('accepted fields by gRPC proto: {}'.format(request.DESCRIPTOR.fields_by_name.keys()))
+            questions = self.question_store.get_questions()
+            return Response.message(questions=questions)
+        except ValueError as ve:
+            self.app.log.error('Schema value error:\r\n{}'.format(traceback.format_exc()))
+            return Response.message(
+                error={
+                    'code': 'value_error',
+                    'message': str(ve),
+                    'details': []
+                }
+            )
+        except ValidationError as ve:
+            self.app.log.error('Schema validation error:\r\n{}'.format(ve.messages))
+            return Response.message(
+                error={
+                    'code': 'invalid_schema',
+                    'message': 'Given data is not valid!',
+                    'details': []
+                }
+            )
+        except Exception:
+            self.app.log.error('An error occurred: {}'.format(traceback.format_exc()))
+            return Response.message(
+                error={
+                    'code': 'server_error',
+                    'message': 'Server is in maintenance mode',
+                    'details': []
+                }
+            )
+
+    def GetSurveyByReservationId(self, request: GetSurveyByReservationIdRequest, context) -> GetSurveyByReservationIdResponse:
+        try:
+            self.app.log.info('accepted fields by gRPC proto: {}'.format(request.DESCRIPTOR.fields_by_name.keys()))
+            survey = self.survey_store.get_by_reservation_id(request.reservation_id)
+            return Response.message(_id=survey['_id'],
+                                    questions=survey['questions'],
+                                    user_id=survey['user_id'],
+                                    staff_id=survey['staff_id'],
+                                    reservation_id=survey['reservation_id'],
+                                    status=survey['status'],
+                                    content=survey['content'],
+                                    platform=survey['platform'],
+                                    total_rating=survey['total_rating'])
+        except ValueError as ve:
+            self.app.log.error('Schema value error:\r\n{}'.format(traceback.format_exc()))
+            return Response.message(
+                error={
+                    'code': 'value_error',
+                    'message': str(ve),
+                    'details': []
+                }
+            )
+        except DocumentNotFound as dnf:
+            self.app.log.error('survey not found:\r\n{}'.format(traceback.format_exc()))
+            return Response.message(
+                error={
+                    'code': 'resource_not_found',
+                    'message': str(dnf),
+                    'details': []
+                }
+            )
+        except ValidationError as ve:
+            self.app.log.error('Schema validation error:\r\n{}'.format(ve.messages))
+            return Response.message(
+                error={
+                    'code': 'invalid_schema',
+                    'message': 'Given data is not valid!',
                     'details': []
                 }
             )
