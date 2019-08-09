@@ -21,6 +21,8 @@ class QuestionStore:
             self.app.log.error('empty question payload cannot be saved.')
             raise SaveError
 
+        self.cache_wrapper.delete('ALL')
+
         self.app.log.debug('saving clean question:\n{}'.format(clean_data))
         question_id = self.db.save(clean_data)
         clean_data['_id'] = str(question_id)
@@ -48,6 +50,7 @@ class QuestionStore:
         if modified_count:
             question['_id'] = str(question_id)
             self.cache_wrapper.write_cache(question_id, question)
+            self.cache_wrapper.delete('ALL')
 
         return modified_count
 
@@ -93,15 +96,29 @@ class QuestionStore:
         if status:
             filter_args['status'] = status
 
-        cur = self.db.find(filter=filter_args,
-                           projection=project)
-        return [self.question_schema.load(question, partial=partial) for question in cur]
+        questions = list(self.db.find(filter=filter_args, projection=project))
+        return self.question_schema.load(questions, many=True, partial=partial)
 
     def delete(self, question_id):
         question_id = to_object_id(question_id)
         self.cache_wrapper.delete(question_id)
+        self.cache_wrapper.delete('ALL')
         update_result = self.db.update({'_id': question_id}, {'$set': {'status': DELETED_STATUS}})
         self.app.log.info('question {} deletion result: {}'.format(question_id, update_result))
 
         # https://docs.mongodb.com/manual/reference/command/update/#update.nModified
         return update_result.get('nModified', 0)
+
+    def get_questions(self):
+        try:
+            questions = self.cache_wrapper.get_cache('ALL')
+        except CacheNotFound:
+            self.app.log.debug('reading directly from database')
+            questions = list(self.db.find({}, {'created_at': 0}))
+            for question in questions:
+                question['_id'] = str(question['_id'])
+
+            self.cache_wrapper.write_cache('ALL', questions)
+
+        clean_data = self.question_schema.load(questions, many=True)
+        return clean_data

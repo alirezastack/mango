@@ -1,5 +1,5 @@
 from olive.proto import zoodroom_pb2_grpc, health_pb2_grpc
-from mango.core.store.question_store import QuestionStore
+from mango.core.store.question import QuestionStore
 from olive.store.mongo_connection import MongoConnection
 from mango.core.store.survey import SurveyStore
 from olive.proto.health import HealthService
