@@ -1,6 +1,7 @@
 from olive.toolbox import MarshmallowDateTimeField
 from marshmallow import Schema, fields, EXCLUDE
 from olive.consts import UTC_DATE_FORMAT
+from olive.store.toolbox import MongoObjectId, BaseSchema
 import datetime
 
 
@@ -11,7 +12,7 @@ class TitleNestedSchema(Schema):
                             error_messages={'required': {'message': 'question on_display title required', 'code': 400}})
 
 
-class QuestionSchema(Schema):
+class QuestionSchema(BaseSchema):
     class Meta:
         # Tuple or list of fields to include in the serialized result
         fields = ("_id", "title", "include_in", "weight", "order", "status", "category", "ranges", "created_at")
@@ -34,5 +35,5 @@ class QuestionSchema(Schema):
     # dump_only: Fields to skip during deserialization(i.e.: .load())
     created_at = MarshmallowDateTimeField(dump_only=True,
                                           default=lambda: datetime.datetime.utcnow(),
-                                          allow_none=False
-                                          )
+                                          allow_none=False)
+    _id = MongoObjectId(allow_none=False)

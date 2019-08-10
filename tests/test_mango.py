@@ -59,18 +59,6 @@ def grpc_server(cls, question_store, survey_store, app, ranges):
         server.stop(None)
 
 
-# may do something extra for this mock if it's stateful
-class FakeMangoService(zoodroom_pb2_grpc.MangoServiceServicer):
-    def AddQuestion(self, request, context):
-        return zoodroom_pb2.AddQuestionResponse()
-
-    def AddSurvey(self, request, context):
-        return zoodroom_pb2.AddSurveyResponse()
-
-    def DeleteQuestion(self, request, context):
-        return zoodroom_pb2.DeleteQuestionResponse()
-
-
 class SurveyTest(unittest.TestCase):
     def setUp(self):
         # with MangoAppTest(config_files=['/etc/mango/mango.yml']) as app:
@@ -85,7 +73,7 @@ class SurveyTest(unittest.TestCase):
         self.grpc_server = grpc_server(MangoService, self.question_store, self.survey_store, self.app, self.ranges)
 
     def test_successful_add_question(self):
-        with grpc_server(FakeMangoService) as stub:
+        with grpc_server(MangoService, self.question_store, self.survey_store, self.app, self.ranges) as stub:
             response = stub.AddQuestion(zoodroom_pb2.AddQuestionRequest(
                 title=zoodroom_pb2.QuestionTitle(on_rate='on rate',
                                                  on_display='on-display'),
@@ -95,11 +83,11 @@ class SurveyTest(unittest.TestCase):
                 status='active',
                 category='customer_survey'
             ))
-            self.assertEqual(response.question_id, '')
+            self.assertNotEqual(response.question_id, '')
 
     def test_invalid_grpc_field_in_add_question(self):
         try:
-            with grpc_server(FakeMangoService) as stub:
+            with grpc_server(MangoService, self.question_store, self.survey_store, self.app, self.ranges) as stub:
                 self.assertRaises(ValueError, stub.AddQuestion(zoodroom_pb2.AddQuestionRequest(
                     invalid_field=12
                 )))
@@ -156,7 +144,7 @@ class SurveyTest(unittest.TestCase):
             self.assertEqual(response.error.code, 'resource_not_found')
 
     def test_update_question(self):
-        with grpc_server(FakeMangoService) as stub:
+        with grpc_server(MangoService, self.question_store, self.survey_store, self.app, self.ranges) as stub:
             response = stub.UpdateQuestion(zoodroom_pb2.UpdateQuestionRequest(
                 question_id='12222222',
                 title=zoodroom_pb2.QuestionTitle(on_rate='blah rate',
@@ -169,3 +157,28 @@ class SurveyTest(unittest.TestCase):
             ))
         self.assertEqual(type(response.is_updated), bool)
         self.assertFalse(response.is_updated)
+
+    def test_get_questions(self):
+        with grpc_server(MangoService, self.question_store, self.survey_store, self.app, self.ranges) as stub:
+            request = zoodroom_pb2.GetQuestionsRequest()
+            question = {
+                'title': zoodroom_pb2.QuestionTitle(on_rate='on rate', on_display='on-display'),
+                'include_in': ['rate_display', ], 'weight': 2, 'order': 1, 'status': 'active',
+                'category': 'customer_survey'}
+
+            add_response = stub.AddQuestion(zoodroom_pb2.AddQuestionRequest(**question))
+            added_id = add_response.question_id
+            question['_id'] = added_id
+
+            get_response = stub.GetQuestions(request=request)
+            self.assertIsInstance(get_response, zoodroom_pb2.GetQuestionsResponse)
+            for question in get_response.questions:
+                self.assertIsInstance(question, zoodroom_pb2.Question)
+
+            self.assertIn(question, get_response.questions)
+
+            deletion_response = stub.DeleteQuestion(
+                zoodroom_pb2.DeleteQuestionRequest(question_id=added_id))
+            get_questions_response = stub.GetQuestions(request=request)
+            if deletion_response.is_deleted:
+                self.assertNotIn(question, get_questions_response.questions)
