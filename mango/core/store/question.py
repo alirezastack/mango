@@ -1,16 +1,17 @@
-from olive.exc import SaveError, CacheNotFound, DocumentNotFound
 from mango.core.models.question import QuestionSchema
+from olive.consts import DELETED_STATUS, ACTIVE_STATUS, INACTIVE_STATUS
+from olive.exc import SaveError, CacheNotFound, DocumentNotFound
 from olive.store.cache_wrapper import CacheWrapper
 from olive.store.toolbox import to_object_id
-from olive.consts import DELETED_STATUS
 
 
 class QuestionStore:
     def __init__(self, db, app):
         self.app = app
         self.db = db
-        self.question_schema = QuestionSchema()
+        self.question_schema = QuestionSchema(exclude_none_id=True)
         self.cache_key = 'MANGO:QUESTION:{}'
+        self.cache_questions_key = 'ALL'
         self.cache_wrapper = CacheWrapper(self.app, self.cache_key)
 
     def save(self, data):
@@ -26,6 +27,7 @@ class QuestionStore:
         self.app.log.debug('saving clean question:\n{}'.format(clean_data))
         question_id = self.db.save(clean_data)
         clean_data['_id'] = str(question_id)
+        self.cache_wrapper.delete(self.cache_questions_key)
         return str(question_id)
 
     def update(self, question_id, question):
@@ -50,7 +52,7 @@ class QuestionStore:
         if modified_count:
             question['_id'] = str(question_id)
             self.cache_wrapper.write_cache(question_id, question)
-            self.cache_wrapper.delete('ALL')
+            self.cache_wrapper.delete(self.cache_questions_key)
 
         return modified_count
 
@@ -104,6 +106,11 @@ class QuestionStore:
         self.cache_wrapper.delete(question_id)
         self.cache_wrapper.delete('ALL')
         update_result = self.db.update({'_id': question_id}, {'$set': {'status': DELETED_STATUS}})
+        modified_count = update_result['nModified']
+
+        if modified_count:
+            self.cache_wrapper.delete(self.cache_questions_key)
+
         self.app.log.info('question {} deletion result: {}'.format(question_id, update_result))
 
         # https://docs.mongodb.com/manual/reference/command/update/#update.nModified
@@ -111,14 +118,13 @@ class QuestionStore:
 
     def get_questions(self):
         try:
-            questions = self.cache_wrapper.get_cache('ALL')
+            questions_docs = self.cache_wrapper.get_cache(self.cache_questions_key)
         except CacheNotFound:
-            self.app.log.debug('reading directly from database')
-            questions = list(self.db.find({}, {'created_at': 0}))
-            for question in questions:
-                question['_id'] = str(question['_id'])
+            self.app.log.debug('reading questions directly from database')
+            questions_cursor = self.db.find({'status': {'$in': [ACTIVE_STATUS, INACTIVE_STATUS]}}, {'created_at': 0})
+            questions_docs = self.question_schema.load(questions_cursor, many=True)
+            if not questions_docs:
+                return questions_docs
+            self.cache_wrapper.write_cache(self.cache_questions_key, questions_docs)
 
-            self.cache_wrapper.write_cache('ALL', questions)
-
-        clean_data = self.question_schema.load(questions, many=True)
-        return clean_data
+        return questions_docs
