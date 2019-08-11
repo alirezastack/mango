@@ -1,3 +1,4 @@
+from olive.store.toolbox import BaseSchema, MongoObjectId
 from olive.toolbox import MarshmallowDateTimeField
 from marshmallow import Schema, fields, EXCLUDE
 from olive.consts import UTC_DATE_FORMAT
@@ -11,7 +12,7 @@ class SurveyQuestion(Schema):
                         error_messages={'required': {'message': 'rating is required', 'code': 400}})
 
 
-class SurveySchema(Schema):
+class SurveySchema(BaseSchema):
     class Meta:
         # Tuple or list of fields to include in the serialized result
         fields = ("_id", "created_at", "updated_at", "user_id", "staff_id", "total_rating",
@@ -41,3 +42,4 @@ class SurveySchema(Schema):
                          error_messages={'required': {'message': 'content is required', 'code': 400}})
     platform = fields.Str(required=True,
                           error_messages={'required': {'message': 'platform is required', 'code': 400}})
+    _id = MongoObjectId(allow_none=False)

@@ -1,6 +1,6 @@
-from mango.core.models.question import QuestionSchema
 from olive.consts import DELETED_STATUS, ACTIVE_STATUS, INACTIVE_STATUS
 from olive.exc import SaveError, CacheNotFound, DocumentNotFound
+from mango.core.models.question import QuestionSchema
 from olive.store.cache_wrapper import CacheWrapper
 from olive.store.toolbox import to_object_id
 

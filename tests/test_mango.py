@@ -1,7 +1,6 @@
-from mango.core.store.question import QuestionStore
 from olive.store.mongo_connection import MongoConnection
 from olive.proto import zoodroom_pb2_grpc, zoodroom_pb2
-
+from mango.core.store.question import QuestionStore
 from mango.core.store.survey import SurveyStore
 from mango.core.survey import MangoService
 from decorator import contextmanager
@@ -142,6 +141,16 @@ class SurveyTest(unittest.TestCase):
                 reservation_id='non_existent_id'
             ))
             self.assertEqual(response.error.code, 'resource_not_found')
+
+    def test_get_surveys(self):
+        with grpc_server(MangoService, self.question_store, self.survey_store, self.app, self.ranges) as stub:
+            response = stub.GetSurveys(zoodroom_pb2.GetSurveysRequest(
+                skip=700000,
+                limit=1
+            ))
+            print(response.surveys)
+        self.assertEqual(type(response.total_count), int)
+        self.assertEqual(len(list(response.surveys)), 0)
 
     def test_update_question(self):
         with grpc_server(MangoService, self.question_store, self.survey_store, self.app, self.ranges) as stub:

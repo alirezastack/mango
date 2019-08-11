@@ -1,8 +1,7 @@
 from olive.proto.zoodroom_pb2 import AddQuestionRequest, AddQuestionResponse, GetQuestionByIdRequest, \
     GetQuestionByIdResponse, DeleteQuestionRequest, DeleteQuestionResponse, UpdateQuestionRequest, \
-    UpdateQuestionResponse, GetQuestionsRequest, GetQuestionsResponse, AddSurveyRequest, AddSurveyResponse, \
-    GetSurveyByReservationIdRequest, GetSurveyByReservationIdResponse
-
+    AddSurveyResponse, AddSurveyRequest, UpdateQuestionResponse, GetQuestionsRequest, GetQuestionsResponse, \
+    GetSurveyByReservationIdRequest, GetSurveyByReservationIdResponse, GetSurveysRequest, GetSurveysResponse
 from olive.exc import InvalidObjectId, DocumentNotFound, SaveError
 from olive.proto import zoodroom_pb2_grpc
 from marshmallow import ValidationError
@@ -407,3 +406,31 @@ class MangoService(zoodroom_pb2_grpc.MangoServiceServicer):
                 }
             )
 
+    def GetSurveys(self, request: GetSurveysRequest, context) -> GetSurveysResponse:
+        try:
+            self.app.log.info('accepted fields by gRPC proto: {}'.format(request.DESCRIPTOR.fields_by_name.keys()))
+            total_count, surveys = self.survey_store.get_surveys(skip=request.skip,
+                                                                 limit=request.limit)
+            self.app.log.info('total surveys count: {}'.format(total_count))
+            return Response.message(
+                surveys=surveys,
+                total_count=total_count
+            )
+        except ValidationError as ve:
+            self.app.log.error('Schema validation error:\r\n{}'.format(ve.messages))
+            return Response.message(
+                error={
+                    'code': 'invalid_schema',
+                    'message': 'Given data is not valid!',
+                    'details': []
+                }
+            )
+        except Exception:
+            self.app.log.error('An error occurred: {}'.format(traceback.format_exc()))
+            return Response.message(
+                error={
+                    'code': 'server_error',
+                    'message': 'Server is in maintenance mode',
+                    'details': []
+                }
+            )
