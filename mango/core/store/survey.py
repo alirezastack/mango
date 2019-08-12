@@ -26,7 +26,6 @@ class SurveyStore:
 
         self.app.log.debug('saving clean survey:\n{}'.format(clean_data))
         survey_id = self.db.save(clean_data)
-        clean_data['_id'] = str(survey_id)
 
         # purge all survey caches with filters
         self.cache_wrapper.delete_by_pattern('{}*'.format(self.cache_key.format(self.get_surveys_cache_key.format(''))))
