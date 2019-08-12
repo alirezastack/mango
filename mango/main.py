@@ -1,3 +1,4 @@
+from olive.store.redis_cache_handler import CustomRedisCacheHandler
 from olive.proto import zoodroom_pb2_grpc, health_pb2_grpc
 from olive.store.mongo_connection import MongoConnection
 from mango.core.store.question import QuestionStore
@@ -33,7 +34,7 @@ class MangoApp(App):
         # configuration handler
         config_handler = 'yaml'
 
-        cache_handler = 'redis'
+        cache_handler = 'iredis'
 
         # configuration file suffix
         config_file_suffix = '.yml'
@@ -43,7 +44,8 @@ class MangoApp(App):
 
         # register handlers
         handlers = [
-            Base
+            Base,
+            CustomRedisCacheHandler
         ]
 
     def run(self):
@@ -91,6 +93,7 @@ class MangoAppTest(TestApp, MangoApp):
 def main():
     with MangoApp() as app:
         try:
+            app.handler.register(CustomRedisCacheHandler)
             app.run()
         except AssertionError as e:
             print('AssertionError > %s' % e.args[0])
