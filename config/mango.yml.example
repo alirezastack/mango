@@ -21,7 +21,7 @@ mango:
             range: "(1,2]"
             content: "Poor"
 
-cache.redis:
+cache.iredis:
     expire_time: 3600
     host: 127.0.0.1
     port: 6379
