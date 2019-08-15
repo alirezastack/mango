@@ -1,7 +1,8 @@
 from olive.proto.zoodroom_pb2 import AddQuestionRequest, AddQuestionResponse, GetQuestionByIdRequest, \
     GetQuestionByIdResponse, DeleteQuestionRequest, DeleteQuestionResponse, UpdateQuestionRequest, \
     AddSurveyResponse, AddSurveyRequest, UpdateQuestionResponse, GetQuestionsRequest, GetQuestionsResponse, \
-    GetSurveyByReservationIdRequest, GetSurveyByReservationIdResponse, GetSurveysRequest, GetSurveysResponse
+    GetSurveyByReservationIdRequest, GetSurveyByReservationIdResponse, GetSurveysRequest, GetSurveysResponse, \
+    StreamGetSurveysResponse, StreamGetSurveysRequest
 from olive.exc import InvalidObjectId, DocumentNotFound, SaveError
 from olive.proto import zoodroom_pb2_grpc
 from marshmallow import ValidationError
@@ -399,6 +400,29 @@ class MangoService(zoodroom_pb2_grpc.MangoServiceServicer):
         except Exception:
             self.app.log.error('An error occurred: {}'.format(traceback.format_exc()))
             return Response.message(
+                error={
+                    'code': 'server_error',
+                    'message': 'Server is in maintenance mode',
+                    'details': []
+                }
+            )
+
+    def StreamGetSurveys(self, request: StreamGetSurveysRequest, context) -> StreamGetSurveysResponse:
+        try:
+            for survey in self.survey_store.stream_surveys():
+                yield Response.message(survey=survey)
+        except ValidationError as ve:
+            self.app.log.error('Schema validation error:\r\n{}'.format(ve.messages))
+            yield Response.message(
+                error={
+                    'code': 'invalid_schema',
+                    'message': 'Given data is not valid!',
+                    'details': []
+                }
+            )
+        except Exception:
+            self.app.log.error('An error occurred: {}'.format(traceback.format_exc()))
+            yield Response.message(
                 error={
                     'code': 'server_error',
                     'message': 'Server is in maintenance mode',
