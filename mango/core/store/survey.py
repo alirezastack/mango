@@ -47,6 +47,12 @@ class SurveyStore:
         clean_data = self.survey_schema.load(survey_doc)
         return clean_data
 
+    def stream_surveys(self):
+        surveys = self.db.find({})
+        for survey in surveys:
+            self.app.log.debug('yielding survey document: {}'.format(survey['_id']))
+            yield self.survey_schema.load(survey)
+
     def get_surveys(self, skip, limit, sort_key='+total_rating'):
         skip, limit = skip or 0, min(limit or 50, 200)
 

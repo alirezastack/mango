@@ -167,6 +167,28 @@ class SurveyTest(unittest.TestCase):
         self.assertEqual(type(response.is_updated), bool)
         self.assertFalse(response.is_updated)
 
+    def test_stream_get_surveys(self):
+        with grpc_server(MangoService, self.question_store, self.survey_store, self.app, self.ranges) as stub:
+            stub.AddSurvey(zoodroom_pb2.AddSurveyRequest(
+                questions=[zoodroom_pb2.SurveyQuestion(
+                    question_id='5d4bbd9cf9c3ca6feb2563b3',
+                    rating=2
+                ), zoodroom_pb2.SurveyQuestion(
+                    question_id='5d4bbda3f9c3ca6feb2563b4',
+                    rating=3
+                )],
+                reservation_id='my-unique-reservation'
+            ))
+
+            response = stub.StreamGetSurveys(zoodroom_pb2.StreamGetSurveysRequest())
+            rid = None
+            for res in response:
+                if res.survey.reservation_id == 'my-unique-reservation':
+                    rid = res.survey.reservation_id
+                    break
+
+            self.assertEqual(rid, 'my-unique-reservation')
+
     def test_get_questions(self):
         with grpc_server(MangoService, self.question_store, self.survey_store, self.app, self.ranges) as stub:
             request = zoodroom_pb2.GetQuestionsRequest()
