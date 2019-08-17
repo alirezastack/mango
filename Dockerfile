@@ -1,4 +1,4 @@
-FROM python:3.6-alpine
+FROM registry.git.zoodroom.com/basket/fertilizer:latest
 
 LABEL MAINTAINER="Sayyed Alireza Hoseini <alireza.hosseini@zoodroom.com>"
 
