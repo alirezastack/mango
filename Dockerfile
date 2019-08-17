@@ -21,5 +21,8 @@ WORKDIR /src
 
 RUN python setup.py install
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD grpc_health_probe -addr=127.0.0.1:9000 || exit 1
+
 ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["mango"]
