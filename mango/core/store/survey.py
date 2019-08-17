@@ -84,7 +84,7 @@ class SurveyStore:
 
             survey_docs = self.survey_schema.load(survey_docs_cursor, many=True)
             if not survey_docs:
-                return survey_docs
+                return total_count, survey_docs
 
             self.cache_wrapper.write_cache(self.get_surveys_cache_key
                                            .format(cache_key), survey_docs)
