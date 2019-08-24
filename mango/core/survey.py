@@ -3,19 +3,23 @@ from olive.proto.zoodroom_pb2 import AddQuestionRequest, AddQuestionResponse, Ge
     AddSurveyResponse, AddSurveyRequest, UpdateQuestionResponse, GetQuestionsRequest, GetQuestionsResponse, \
     GetSurveyByReservationIdRequest, GetSurveyByReservationIdResponse, GetSurveysRequest, GetSurveysResponse, \
     StreamGetSurveysResponse, StreamGetSurveysRequest
-from olive.exc import InvalidObjectId, DocumentNotFound, SaveError
+from olive.exc import InvalidObjectId, DocumentNotFound, SaveError, FetchError
+from olive.store.toolbox import int_to_object_id
 from olive.proto import zoodroom_pb2_grpc
 from marshmallow import ValidationError
 from olive.proto.rpc import Response
+from olive.http import Request
 import traceback
 
 
 class MangoService(zoodroom_pb2_grpc.MangoServiceServicer):
-    def __init__(self, question_store, survey_store, app, ranges):
+    def __init__(self, question_store, survey_store, app, ranges, legacy_url, legacy_key):
         self.question_store = question_store
         self.survey_store = survey_store
         self.app = app
         self.ranges = ranges
+        self.legacy_base_url = legacy_url if legacy_url[-1:] == '/' else '{}/'.format(legacy_url)
+        self.legacy_key = legacy_key
 
     def AddSurvey(self, request: AddSurveyRequest, context) -> AddSurveyResponse:
         try:
@@ -433,8 +437,39 @@ class MangoService(zoodroom_pb2_grpc.MangoServiceServicer):
     def GetSurveys(self, request: GetSurveysRequest, context) -> GetSurveysResponse:
         try:
             self.app.log.info('accepted fields by gRPC proto: {}'.format(request.DESCRIPTOR.fields_by_name.keys()))
+            query = {}
+            if not all(v is None for v in [request.checkout_start,
+                                           request.checkout_end,
+                                           request.city,
+                                           request.complex]):
+                url = '{}v3/internal-reservations'.format(self.legacy_base_url)
+                params = []
+                if request.checkout_start:
+                    params.append('checkout_start={}'.format(request.checkout_start))
+                if request.checkout_end:
+                    params.append('checkout_end={}'.format(request.checkout_end))
+                if request.complex:
+                    params.append('complex={}'.format(request.complex))
+                if request.city:
+                    params.append('city={}'.format(request.city))
+
+                url = '{}?{}'.format(url, '&'.join(params))
+
+                rq = Request(url=url,
+                             app=self.app,
+                             headers={'X-INTERNAL-API-KEY': self.legacy_key})
+                reservations = rq.get()
+                if reservations:
+                    reservations = list(map(int_to_object_id, reservations))
+                    query = {'reservation_id': {'$in': reservations}}
+
+                status = request.status
+                if status:
+                    query['status'] = status.lower()
+
             total_count, surveys = self.survey_store.get_surveys(skip=request.skip,
-                                                                 limit=request.limit)
+                                                                 limit=request.page_size,
+                                                                 query=query)
             self.app.log.info('total surveys count: {}'.format(total_count))
             return Response.message(
                 surveys=surveys,
@@ -446,6 +481,15 @@ class MangoService(zoodroom_pb2_grpc.MangoServiceServicer):
                 error={
                     'code': 'invalid_schema',
                     'message': 'Given data is not valid!',
+                    'details': []
+                }
+            )
+        except FetchError as fe:
+            self.app.log.error('Legacy API error:\r\n{}'.format(traceback.format_exc()))
+            return Response.message(
+                error={
+                    'code': 'legacy_fetch_error',
+                    'message': 'Could not get data from Legacy API!',
                     'details': []
                 }
             )

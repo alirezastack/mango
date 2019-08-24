@@ -12,6 +12,9 @@ mango:
         socketTimeoutMS: 5000
 ### Toggle application level debug (does not toggle framework debugging)
     debug: true
+    legacy:
+        base_url: "REST_API_BASE_URL"
+        key: "YOUR_SECRET_KEY"
     survey_setting:
         ranges:
           - color: "#000"
