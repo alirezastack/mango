@@ -75,7 +75,9 @@ class MangoServer(GRPCServerBase):
         service = MangoService(question_store=question_store,
                                survey_store=survey_store,
                                app=app,
-                               ranges=app.config['mango']['survey_setting']['ranges'])
+                               ranges=app.config['mango']['survey_setting']['ranges'],
+                               legacy_url=app.config['mango']['legacy']['base_url'],
+                               legacy_key=app.config['mango']['legacy']['key'])
         health_service = HealthService(app=app)
 
         # adds a MangoService to a gRPC.Server

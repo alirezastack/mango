@@ -44,10 +44,10 @@ def test_command1():
 
 
 @contextmanager
-def grpc_server(cls, question_store, survey_store, app, ranges):
+def grpc_server(cls, question_store, survey_store, app, ranges, url, key):
     """Instantiate a Mango server and return a stub for use in tests"""
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    zoodroom_pb2_grpc.add_MangoServiceServicer_to_server(cls(question_store, survey_store, app, ranges), server)
+    zoodroom_pb2_grpc.add_MangoServiceServicer_to_server(cls(question_store, survey_store, app, ranges, url, key), server)
     port = server.add_insecure_port('[::]:0')
     server.start()
 
@@ -67,12 +67,16 @@ class SurveyTest(unittest.TestCase):
         mongo = MongoConnection(mongodb_cfg, self.app)
         target_database = mongo.service_db
         self.ranges = self.app.config['mango']['survey_setting']['ranges']
+        self.legacy_url = self.app.config['mango']['legacy']['base_url']
+        self.legacy_key = self.app.config['mango']['legacy']['key']
         self.question_store = QuestionStore(target_database.question, self.app)
         self.survey_store = SurveyStore(target_database.survey, self.app)
-        self.grpc_server = grpc_server(MangoService, self.question_store, self.survey_store, self.app, self.ranges)
+        self.grpc_server = grpc_server(MangoService, self.question_store, self.survey_store,
+                                       self.app, self.ranges, self.legacy_url, self.legacy_key)
 
     def test_successful_add_question(self):
-        with grpc_server(MangoService, self.question_store, self.survey_store, self.app, self.ranges) as stub:
+        with grpc_server(MangoService, self.question_store, self.survey_store, self.app,
+                         self.ranges, self.legacy_url, self.legacy_key) as stub:
             response = stub.AddQuestion(zoodroom_pb2.AddQuestionRequest(
                 title=zoodroom_pb2.QuestionTitle(on_rate='on rate',
                                                  on_display='on-display'),
@@ -86,7 +90,8 @@ class SurveyTest(unittest.TestCase):
 
     def test_invalid_grpc_field_in_add_question(self):
         try:
-            with grpc_server(MangoService, self.question_store, self.survey_store, self.app, self.ranges) as stub:
+            with grpc_server(MangoService, self.question_store, self.survey_store, self.app,
+                             self.ranges, self.legacy_url, self.legacy_key) as stub:
                 self.assertRaises(ValueError, stub.AddQuestion(zoodroom_pb2.AddQuestionRequest(
                     invalid_field=12
                 )))
@@ -96,14 +101,16 @@ class SurveyTest(unittest.TestCase):
             self.fail('Expected exception not raised!')
 
     def test_delete_question(self):
-        with grpc_server(MangoService, self.question_store, self.survey_store, self.app, self.ranges) as stub:
+        with grpc_server(MangoService, self.question_store, self.survey_store, self.app,
+                         self.ranges, self.legacy_url, self.legacy_key) as stub:
             response = stub.DeleteQuestion(zoodroom_pb2.DeleteQuestionRequest(
                 question_id='12222222'
             ))
             self.assertEqual(response.error.code, 'invalid_id')
 
     def test_add_survey(self):
-        with grpc_server(MangoService, self.question_store, self.survey_store, self.app, self.ranges) as stub:
+        with grpc_server(MangoService, self.question_store, self.survey_store, self.app,
+                         self.ranges, self.legacy_url, self.legacy_key) as stub:
             response = stub.AddSurvey(zoodroom_pb2.AddSurveyRequest(
                 questions=[zoodroom_pb2.SurveyQuestion(
                     question_id='5d4bbd9cf9c3ca6feb2563b3',
@@ -116,7 +123,8 @@ class SurveyTest(unittest.TestCase):
             self.assertEqual(len(response.survey_id), 24)
 
     def test_add_survey_with_invalid_question_id(self):
-        with grpc_server(MangoService, self.question_store, self.survey_store, self.app, self.ranges) as stub:
+        with grpc_server(MangoService, self.question_store, self.survey_store,
+                         self.app, self.ranges, self.legacy_url, self.legacy_key) as stub:
             response = stub.AddSurvey(zoodroom_pb2.AddSurveyRequest(
                 questions=[zoodroom_pb2.SurveyQuestion(
                     question_id='5d4bbd9cf9c3ca6feb2563b0',
@@ -129,21 +137,24 @@ class SurveyTest(unittest.TestCase):
             self.assertEqual(response.error.code, 'resource_not_found')
 
     def test_get_survey_by_reservation_id(self):
-        with grpc_server(MangoService, self.question_store, self.survey_store, self.app, self.ranges) as stub:
+        with grpc_server(MangoService, self.question_store, self.survey_store, self.app,
+                         self.ranges, self.legacy_url, self.legacy_key) as stub:
             response = stub.GetSurveyByReservationId(zoodroom_pb2.GetSurveyByReservationIdRequest(
                 reservation_id='12'
             ))
             self.assertEqual(response.reservation_id, '12')
 
     def test_get_survey_by_invalid_reservation_id(self):
-        with grpc_server(MangoService, self.question_store, self.survey_store, self.app, self.ranges) as stub:
+        with grpc_server(MangoService, self.question_store, self.survey_store, self.app,
+                         self.ranges, self.legacy_url, self.legacy_key) as stub:
             response = stub.GetSurveyByReservationId(zoodroom_pb2.GetSurveyByReservationIdRequest(
                 reservation_id='non_existent_id'
             ))
             self.assertEqual(response.error.code, 'resource_not_found')
 
     def test_get_surveys(self):
-        with grpc_server(MangoService, self.question_store, self.survey_store, self.app, self.ranges) as stub:
+        with grpc_server(MangoService, self.question_store, self.survey_store, self.app,
+                         self.ranges, self.legacy_url, self.legacy_key) as stub:
             response = stub.GetSurveys(zoodroom_pb2.GetSurveysRequest(
                 skip=700000,
                 limit=1
@@ -153,7 +164,8 @@ class SurveyTest(unittest.TestCase):
         self.assertEqual(len(list(response.surveys)), 0)
 
     def test_update_question(self):
-        with grpc_server(MangoService, self.question_store, self.survey_store, self.app, self.ranges) as stub:
+        with grpc_server(MangoService, self.question_store, self.survey_store, self.app,
+                         self.ranges, self.legacy_url, self.legacy_key) as stub:
             response = stub.UpdateQuestion(zoodroom_pb2.UpdateQuestionRequest(
                 question_id='12222222',
                 title=zoodroom_pb2.QuestionTitle(on_rate='blah rate',
@@ -168,7 +180,8 @@ class SurveyTest(unittest.TestCase):
         self.assertFalse(response.is_updated)
 
     def test_stream_get_surveys(self):
-        with grpc_server(MangoService, self.question_store, self.survey_store, self.app, self.ranges) as stub:
+        with grpc_server(MangoService, self.question_store, self.survey_store, self.app,
+                         self.ranges, self.legacy_url, self.legacy_key) as stub:
             stub.AddSurvey(zoodroom_pb2.AddSurveyRequest(
                 questions=[zoodroom_pb2.SurveyQuestion(
                     question_id='5d4bbd9cf9c3ca6feb2563b3',
@@ -190,7 +203,8 @@ class SurveyTest(unittest.TestCase):
             self.assertEqual(rid, 'my-unique-reservation')
 
     def test_get_questions(self):
-        with grpc_server(MangoService, self.question_store, self.survey_store, self.app, self.ranges) as stub:
+        with grpc_server(MangoService, self.question_store, self.survey_store, self.app,
+                         self.ranges, self.legacy_url, self.legacy_key) as stub:
             request = zoodroom_pb2.GetQuestionsRequest()
             question = {
                 'title': zoodroom_pb2.QuestionTitle(on_rate='on rate', on_display='on-display'),

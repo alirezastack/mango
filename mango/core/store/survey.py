@@ -53,10 +53,15 @@ class SurveyStore:
             self.app.log.debug('yielding survey document: {}'.format(survey['_id']))
             yield self.survey_schema.load(survey)
 
-    def get_surveys(self, skip, limit, sort_key='+total_rating'):
+    def get_surveys(self, skip, limit, query=None, sort_key='+total_rating'):
+        query = query or {}
         skip, limit = skip or 0, min(limit or 50, 200)
 
-        cache_key = generate_sha256('skip:{}limit:{}{}'.format(skip, limit, sort_key))
+        plain_cache_key = 'skip:{}limit:{}{}'.format(skip, limit, sort_key)
+        if query:
+            plain_cache_key += str(query)
+
+        cache_key = generate_sha256(plain_cache_key)
 
         try:
             survey_docs = self.cache_wrapper.get_cache(self.get_surveys_cache_key
@@ -74,7 +79,7 @@ class SurveyStore:
             if sort_key[:1] not in sort_direction.keys():
                 raise InvalidFilter('invalid sort_key given: {}, it should start with - or +'.format(sort_key))
 
-            survey_docs_cursor = self.db.find(filter={},
+            survey_docs_cursor = self.db.find(filter=query,
                                               projection={'created_at': 0, 'updated_at': 0},
                                               skip=skip,
                                               limit=limit,
