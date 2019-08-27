@@ -438,10 +438,10 @@ class MangoService(zoodroom_pb2_grpc.MangoServiceServicer):
         try:
             self.app.log.info('accepted fields by gRPC proto: {}'.format(request.DESCRIPTOR.fields_by_name.keys()))
             query = {}
-            if not all(v is None for v in [request.checkout_start,
-                                           request.checkout_end,
-                                           request.city,
-                                           request.complex]):
+            if not all(v in [None, 0, ''] for v in [request.checkout_start,
+                                                    request.checkout_end,
+                                                    request.city,
+                                                    request.complex]):
                 url = '{}v3/internal-reservations'.format(self.legacy_base_url)
                 params = []
                 if request.checkout_start:
