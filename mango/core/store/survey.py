@@ -53,17 +53,21 @@ class SurveyStore:
             self.app.log.debug('yielding survey document: {}'.format(survey['_id']))
             yield self.survey_schema.load(survey)
 
-    def get_surveys(self, skip, limit, query=None, sort_key='+total_rating', extra_cache_key=''):
+    def get_surveys(self, skip, limit, query=None, sort_key='+total_rating', ignore_cache=False):
         query = query or {}
         skip, limit = skip or 0, min(limit or 50, 200)
 
-        plain_cache_key = 'skip:{}limit:{}{}{}'.format(skip, limit, sort_key, extra_cache_key)
+        plain_cache_key = 'skip:{}limit:{}{}'.format(skip, limit, sort_key)
         if query:
             plain_cache_key += str(query)
 
         cache_key = generate_sha256(plain_cache_key)
 
         try:
+            if ignore_cache:
+                self.app.log.debug('ignoring cache requested')
+                raise CacheNotFound
+
             survey_docs = self.cache_wrapper.get_cache(self.get_surveys_cache_key
                                                        .format(cache_key))
             total_count = self.cache_wrapper.get_cache(self.get_surveys_cache_key
@@ -91,10 +95,11 @@ class SurveyStore:
             if not survey_docs:
                 return total_count, survey_docs
 
-            self.cache_wrapper.write_cache(self.get_surveys_cache_key
-                                           .format(cache_key), survey_docs)
-            self.cache_wrapper.write_cache(key=self.get_surveys_cache_key.format('{}:COUNT'.format(cache_key)),
-                                           value={'total_count': total_count})
+            if not ignore_cache:
+                self.cache_wrapper.write_cache(self.get_surveys_cache_key
+                                               .format(cache_key), survey_docs)
+                self.cache_wrapper.write_cache(key=self.get_surveys_cache_key.format('{}:COUNT'.format(cache_key)),
+                                               value={'total_count': total_count})
 
         self.app.log.info('surveys result: \n{}'.format(pformat(survey_docs)))
 
