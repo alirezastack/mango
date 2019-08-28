@@ -438,12 +438,12 @@ class MangoService(zoodroom_pb2_grpc.MangoServiceServicer):
         try:
             self.app.log.info('accepted fields by gRPC proto: {}'.format(request.DESCRIPTOR.fields_by_name.keys()))
             query = {}
+            params = []
             if not all(v in [None, 0, ''] for v in [request.checkout_start,
                                                     request.checkout_end,
                                                     request.city,
                                                     request.complex]):
                 url = '{}v3/internal-reservations'.format(self.legacy_base_url)
-                params = []
                 if request.checkout_start:
                     params.append('checkout_start={}'.format(request.checkout_start))
                 if request.checkout_end:
@@ -469,7 +469,8 @@ class MangoService(zoodroom_pb2_grpc.MangoServiceServicer):
 
             total_count, surveys = self.survey_store.get_surveys(skip=request.skip,
                                                                  limit=request.page_size,
-                                                                 query=query)
+                                                                 query=query,
+                                                                 extra_cache_key='&'.join(params))
             self.app.log.info('total surveys count: {}'.format(total_count))
             return Response.message(
                 surveys=surveys,

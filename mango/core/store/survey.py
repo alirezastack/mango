@@ -53,11 +53,11 @@ class SurveyStore:
             self.app.log.debug('yielding survey document: {}'.format(survey['_id']))
             yield self.survey_schema.load(survey)
 
-    def get_surveys(self, skip, limit, query=None, sort_key='+total_rating'):
+    def get_surveys(self, skip, limit, query=None, sort_key='+total_rating', extra_cache_key=''):
         query = query or {}
         skip, limit = skip or 0, min(limit or 50, 200)
 
-        plain_cache_key = 'skip:{}limit:{}{}'.format(skip, limit, sort_key)
+        plain_cache_key = 'skip:{}limit:{}{}{}'.format(skip, limit, sort_key, extra_cache_key)
         if query:
             plain_cache_key += str(query)
 
