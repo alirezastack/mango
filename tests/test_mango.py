@@ -82,9 +82,7 @@ class SurveyTest(unittest.TestCase):
                                                  on_display='on-display'),
                 include_in=['rate_display'],
                 weight=2,
-                order=1,
-                status='active',
-                category='customer_survey'
+                order=1
             ))
             self.assertNotEqual(response.question_id, '')
 
@@ -171,8 +169,6 @@ class SurveyTest(unittest.TestCase):
                 title=zoodroom_pb2.QuestionTitle(on_rate='blah rate',
                                                  on_display='blah display'),
                 include_in=['something'],
-                category='cat',
-                status='active',
                 order=20,
                 weight=12
             ))
@@ -207,9 +203,9 @@ class SurveyTest(unittest.TestCase):
                          self.ranges, self.legacy_url, self.legacy_key) as stub:
             request = zoodroom_pb2.GetQuestionsRequest()
             question = {
-                'title': zoodroom_pb2.QuestionTitle(on_rate='on rate', on_display='on-display'),
-                'include_in': ['rate_display', ], 'weight': 2, 'order': 1, 'status': 'active',
-                'category': 'customer_survey'}
+                'title': zoodroom_pb2.QuestionTitle(on_rate='on rate'),
+                'include_in': ['rate_display', ], 'weight': 0, 'order': 3
+            }
 
             add_response = stub.AddQuestion(zoodroom_pb2.AddQuestionRequest(**question))
             added_id = add_response.question_id
