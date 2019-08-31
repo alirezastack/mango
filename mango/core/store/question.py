@@ -33,9 +33,8 @@ class QuestionStore:
     def update(self, question_id, question):
         question_id = to_object_id(question_id)
 
-        if question['status'] == DELETED_STATUS:
-            raise SaveError('question {} with status of {} cannot be saved via update() method'
-                            .format(question_id, DELETED_STATUS))
+        if question['is_deleted']:
+            raise SaveError('deleted question {} cannot be saved via update() method'.format(question_id))
 
         # raise validation error on invalid data
         self.question_schema.load(question)
@@ -68,15 +67,15 @@ class QuestionStore:
                 raise DocumentNotFound("Document {} not found!".format(question_id))
 
             question_doc['_id'] = str(question_doc['_id'])
-            if question_doc['status'] != DELETED_STATUS:
+            if not question_doc['is_deleted']:
                 self.cache_wrapper.write_cache(question_id, question_doc)
 
         clean_data = self.question_schema.load(question_doc)
         return clean_data
 
     # TODO: zoodroom-backend compatibility
-    def get_questions_by_filters(self, question_ids, include_in=None, status=None, project=None):
-        all_fields = {'weight', 'status', 'order', 'include_in', 'title', 'category'}
+    def get_questions_by_filters(self, question_ids, include_in=None, project=None):
+        all_fields = {'weight', 'order', 'include_in', 'title'}
         partial = None
         project = project if type(project) in [list, dict] else None
         if project:
@@ -95,9 +94,6 @@ class QuestionStore:
         if include_in:
             filter_args["include_in"] = include_in
 
-        if status:
-            filter_args['status'] = status
-
         questions = list(self.db.find(filter=filter_args, projection=project))
         return self.question_schema.load(questions, many=True, partial=partial)
 
@@ -105,7 +101,7 @@ class QuestionStore:
         question_id = to_object_id(question_id)
         self.cache_wrapper.delete(question_id)
         self.cache_wrapper.delete('ALL')
-        update_result = self.db.update({'_id': question_id}, {'$set': {'status': DELETED_STATUS}})
+        update_result = self.db.update({'_id': question_id}, {'$set': {'is_deleted': True}})
         modified_count = update_result['nModified']
 
         if modified_count:
@@ -121,7 +117,7 @@ class QuestionStore:
             questions_docs = self.cache_wrapper.get_cache(self.cache_questions_key)
         except CacheNotFound:
             self.app.log.debug('reading questions directly from database')
-            questions_cursor = self.db.find({'status': {'$in': [ACTIVE_STATUS, INACTIVE_STATUS]}}, {'created_at': 0})
+            questions_cursor = self.db.find({'is_deleted': {'$ne': True}}, {'created_at': 0, 'is_deleted': 0})
             questions_docs = self.question_schema.load(questions_cursor, many=True)
             if not questions_docs:
                 return questions_docs

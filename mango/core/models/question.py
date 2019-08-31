@@ -15,7 +15,7 @@ class TitleNestedSchema(Schema):
 class QuestionSchema(BaseSchema):
     class Meta:
         # Tuple or list of fields to include in the serialized result
-        fields = ("_id", "title", "include_in", "weight", "order", "status", "category", "ranges", "created_at")
+        fields = ("_id", "title", "include_in", "weight", "order", "is_deleted", "ranges", "created_at")
         # exclude unknown fields from database on .load() call
         unknown = EXCLUDE
         datetimeformat = UTC_DATE_FORMAT
@@ -27,11 +27,7 @@ class QuestionSchema(BaseSchema):
                             error_messages={'required': {'message': 'weight required', 'code': 400}})
     order = fields.Integer(required=True,
                            error_messages={'required': {'message': 'order required', 'code': 400}})
-    status = fields.Str(required=True,
-                        default='inactive',
-                        error_messages={'required': {'message': 'status required', 'code': 400}})
-    category = fields.Str(required=True,
-                          error_messages={'required': {'message': 'category required', 'code': 400}})
+    is_deleted = fields.Boolean(default=False)
     # dump_only: Fields to skip during deserialization(i.e.: .load())
     created_at = MarshmallowDateTimeField(dump_only=True,
                                           default=lambda: datetime.datetime.utcnow(),

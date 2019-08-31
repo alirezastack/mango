@@ -127,8 +127,6 @@ class MangoService(zoodroom_pb2_grpc.MangoServiceServicer):
                 'include_in': list(request.include_in),
                 'weight': request.weight,
                 'order': request.order,
-                'status': request.status,
-                'category': request.category
             }
 
             question_id = self.question_store.save(question_payload)
@@ -172,10 +170,8 @@ class MangoService(zoodroom_pb2_grpc.MangoServiceServicer):
             return Response.message(
                 _id=str(question['_id']),
                 ranges=self.ranges,
-                category=question['category'],
                 title=question['title'],
                 order=question['order'],
-                status=question['status'],
                 include_in=question['include_in'],
                 weight=question['weight']
             )
@@ -231,13 +227,12 @@ class MangoService(zoodroom_pb2_grpc.MangoServiceServicer):
 
             question = self.question_store.get_question_by_id(request.question_id)
             new_question = {
+                'is_deleted': question['is_deleted'],
                 'title': {
                     'on_rate': request.title.on_rate or question['title']['on_rate'],
                     'on_display': request.title.on_display or question['title']['on_display'],
                 },
                 'include_in': list(request.include_in) or question['include_in'],
-                'category': request.category or question['category'],
-                'status': request.status or question['status'],
                 'order': request.order or question['order'],
                 'weight': request.weight or question['weight'],
             }
